@@ -1,0 +1,29 @@
+x-secret-app: &secret-app
+  environment:
+    APP_MODE: hardened
+    DJANGO_SECRET_KEY: ""
+    DB_PASSWORD: ""
+    DJANGO_SECRET_KEY_FILE: /run/secrets/django_secret_key
+    DB_PASSWORD_FILE: /run/secrets/db_password
+  secrets: [django_secret_key, db_password]
+
+services:
+  db:
+    environment:
+      POSTGRES_PASSWORD: ""
+      POSTGRES_PASSWORD_FILE: /run/secrets/db_password
+    secrets: [db_password]
+  web:
+    <<: *secret-app
+    ports: !override
+      - "127.0.0.1:${HARDENED_PORT:-18000}:8000"
+  worker:
+    <<: *secret-app
+  beat:
+    <<: *secret-app
+
+secrets:
+  db_password:
+    file: ${APPTECH_SECRETS_DIR:-.secrets}/db_password
+  django_secret_key:
+    file: ${APPTECH_SECRETS_DIR:-.secrets}/django_secret_key

@@ -1,0 +1,10 @@
+__pycache__/
+*.py[cod]
+.env
+.venv/
+celerybeat-schedule*
+.coverage
+.secrets*/
+.state/
+.wheelhouse/*
+!.wheelhouse/.keep
