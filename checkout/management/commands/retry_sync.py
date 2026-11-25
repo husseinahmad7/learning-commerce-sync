@@ -19,9 +19,13 @@ class Command(BaseCommand):
             raise CommandError("Enrollment sync not found.")
         if log.status != ERPSyncLog.Status.FAILED:
             raise CommandError("Only Failed syncs can be retried manually.")
+        if log.invoice_outcome == ERPSyncLog.Outcome.REJECTED:
+            raise CommandError("Rejected invoices need a corrected document; unchanged retries are disabled.")
+        if log.invoice_outcome != ERPSyncLog.Outcome.UNKNOWN:
+            log.invoice_outcome = ERPSyncLog.Outcome.PENDING
         log.status = ERPSyncLog.Status.PENDING
         log.retry_count = 0
         log.next_attempt_at = timezone.now()
         log.last_error = ""
-        log.save(update_fields=["status", "retry_count", "next_attempt_at", "last_error"])
+        log.save(update_fields=["status", "retry_count", "next_attempt_at", "last_error", "invoice_outcome"])
         self.stdout.write(f'Enrollment {options["enrollment_id"]} queued for retry.')

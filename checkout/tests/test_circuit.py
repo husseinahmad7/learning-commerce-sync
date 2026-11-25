@@ -21,7 +21,7 @@ class CircuitTests(TransactionTestCase):
     def setUp(self):
         make_course()
         self.client = Redis.from_url(settings.CIRCUIT_REDIS_URL, decode_responses=True)
-        self.key = f"test:apptech:circuit:{uuid4().hex}"
+        self.key = f"test:learning-commerce:circuit:{uuid4().hex}"
 
     def tearDown(self):
         self.client.delete(self.key)

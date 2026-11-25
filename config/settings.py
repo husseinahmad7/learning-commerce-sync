@@ -21,8 +21,8 @@ MEDIA_URL = "/media/"
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
-        "NAME": os.environ.get("DB_NAME", "apptech"),
-        "USER": os.environ.get("DB_USER", "apptech"),
+        "NAME": os.environ.get("DB_NAME", "learning_commerce"),
+        "USER": os.environ.get("DB_USER", "learning_commerce"),
         "PASSWORD": read_secret("DB_PASSWORD", required=APP_MODE == "hardened", default="development-only"),
         "HOST": os.environ.get("DB_HOST", "db"),
         "PORT": os.environ.get("DB_PORT", "5432"),
@@ -61,7 +61,7 @@ SYNC_MAX_RETRIES = 5
 SYNC_RETRY_BASE_SECONDS = 2
 CIRCUIT_ENABLED = os.environ.get("CIRCUIT_ENABLED", "true").lower() == "true"
 CIRCUIT_REDIS_URL = os.environ.get("CIRCUIT_REDIS_URL", CELERY_BROKER_URL)
-CIRCUIT_KEY = os.environ.get("CIRCUIT_KEY", "apptech:erp:circuit")
+CIRCUIT_KEY = os.environ.get("CIRCUIT_KEY", "learning_commerce:erp:circuit")
 CIRCUIT_FAILURE_THRESHOLD = 3
 CIRCUIT_COOLDOWN_SECONDS = 15
 CIRCUIT_PROBE_LEASE_SECONDS = 20

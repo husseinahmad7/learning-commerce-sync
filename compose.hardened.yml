@@ -24,6 +24,6 @@ services:
 
 secrets:
   db_password:
-    file: ${APPTECH_SECRETS_DIR:-.secrets}/db_password
+    file: ${LEARNING_COMMERCE_SECRETS_DIR:-.secrets}/db_password
   django_secret_key:
-    file: ${APPTECH_SECRETS_DIR:-.secrets}/django_secret_key
+    file: ${LEARNING_COMMERCE_SECRETS_DIR:-.secrets}/django_secret_key

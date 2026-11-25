@@ -35,6 +35,8 @@ class TimedOutERPReply(ERPReply):
 @override_settings(SYNC_RETRY_BASE_SECONDS=0, CIRCUIT_ENABLED=False)
 class SyncTaskTests(TransactionTestCase):
     def setUp(self):
+        self.addCleanup(patch.stopall)
+        patch("checkout.tasks.sync_learning.apply_async").start()
         make_course()
         self.log = make_pending()
 
@@ -82,6 +84,7 @@ class SyncTaskTests(TransactionTestCase):
         self.assertEqual(self.log.retry_count, 6)
         self.assertEqual(self.log.payload, original)
         self.assertEqual(self.log.last_error, "Mock ERP response unavailable or invalid")
+        self.assertEqual(self.log.invoice_outcome, "Unknown")
 
     @override_settings(MOCK_ERP_RANDOM_FAILURES=False)
     def test_malformed_erp_responses_use_bounded_retries(self):

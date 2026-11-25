@@ -8,3 +8,8 @@ celerybeat-schedule*
 .state/
 .wheelhouse/*
 !.wheelhouse/.keep
+
+portal/node_modules/
+portal/.next/
+portal/.env*
+!portal/.env.example

@@ -4,7 +4,7 @@ from django.db import transaction
 from django.test import TestCase
 from rest_framework.test import APIClient
 
-from checkout.models import Course, Enrollment, ERPSyncLog, Student
+from checkout.models import Course, Enrollment, EnrollmentOutbox, ERPSyncLog, Student
 
 from .helpers import PAYMENT, make_course
 
@@ -75,6 +75,7 @@ class CheckoutTests(TestCase):
                 self.client.post("/api/checkout/", PAYMENT, format="json")
         self.assertEqual(Enrollment.objects.count(), 0)
         self.assertEqual(Student.objects.count(), 0)
+        self.assertEqual(EnrollmentOutbox.objects.count(), 0)
 
     def test_snapshot_survives_profile_and_course_edits(self):
         response = self.client.post("/api/checkout/", PAYMENT, format="json")

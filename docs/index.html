@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="A reference architecture for connecting a learning storefront to identity, course enrollment, and resilient invoicing.">
+  <meta name="theme-color" content="#0d151b">
+  <title>Learning Commerce Sync | Architecture and failure walkthrough</title>
+  <link rel="stylesheet" href="./site.css">
+  <script src="./demo.js" defer></script>
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+  <header class="top">
+    <div class="wrap top-inner">
+      <a class="wordmark" href="./" aria-label="Learning Commerce Sync home"><span aria-hidden="true">LC</span> Learning Commerce Sync</a>
+      <nav aria-label="Main">
+        <a href="#architecture">Architecture</a>
+        <a href="#walkthrough">Walkthrough</a>
+        <a href="https://github.com/husseinahmad7/learning-commerce-sync">GitHub ↗</a>
+      </nav>
+    </div>
+  </header>
+  <main id="main">
+    <section class="hero wrap">
+      <div>
+        <p class="eyebrow">Reference architecture <span> / </span> Learning platforms</p>
+        <h1>One storefront.<br><em>Independent systems.</em></h1>
+        <p class="lead">A reference project for connecting course discovery, single sign-on, and checkout to a separate learning runtime, without losing track of payment, enrollment, or invoices during an outage.</p>
+        <div class="actions">
+          <a class="button primary" href="#walkthrough">Explore failure scenarios <span aria-hidden="true">↓</span></a>
+          <a class="button secondary" href="https://github.com/husseinahmad7/learning-commerce-sync">Read the source <span aria-hidden="true">↗</span></a>
+        </div>
+      </div>
+      <aside class="summary" aria-label="System summary">
+        <p class="eyebrow">Ownership boundaries</p>
+        <dl>
+          <div><dt>Public portal</dt><dd>Next.js</dd></div>
+          <div><dt>Identity provider</dt><dd>Keycloak</dd></div>
+          <div><dt>Payment &amp; state</dt><dd>Django</dd></div>
+          <div><dt>Learning runtime</dt><dd>Open edX</dd></div>
+          <div><dt>Invoice processing</dt><dd>Accounting &amp; reporting adapters</dd></div>
+        </dl>
+      </aside>
+    </section>
+    <section class="surface" id="architecture">
+      <div class="wrap section">
+        <p class="eyebrow">01 / System design</p>
+        <h2>Five decisions that keep the systems separate</h2>
+        <div class="decisions">
+          <article><span>01</span><h3>Keep learning in the LMS</h3><p>Next.js owns public pages and course discovery. Where an LMS catalog is connected, use a supported API. Open edX retains its course player and authoring tools.</p></article>
+          <article><span>02</span><h3>Make the handoff obvious</h3><p>Give users a direct course link and an easy way back. Match navigation and branding without forking the LMS. A reverse proxy can route URLs; it does not create a login session.</p></article>
+          <article><span>03</span><h3>Share identity, not cookies</h3><p>The storefront and LMS are separate clients of one identity provider. Each completes its own sign-in and owns its own session. The provider’s existing session can spare the learner another password prompt.</p></article>
+          <article><span>04</span><h3>Record payment before delivery</h3><p>Store confirmed payment and its outbox entry in the same database transaction. Workers deliver the work; stable identifiers let retries avoid duplicating invoices and enrollments.</p></article>
+          <article><span>05</span><h3>Preserve uncertainty</h3><p>Unsent, rejected, and unknown invoices need different responses. Keep the tracking record outside the accounting service, so operators can see unfinished work while that service is down.</p></article>
+        </div>
+      </div>
+    </section>
+    <section id="walkthrough" class="wrap section">
+      <p class="eyebrow">02 / Interactive walkthrough</p>
+      <h2>What happens when an invoice doesn’t make it?</h2>
+      <p class="section-lead">Choose a scenario to see what the system knows, what it saves, and what it should do next. These are illustrative states, not live service calls.</p>
+      <div class="walkthrough" hidden>
+        <fieldset id="scenarios">
+          <legend>Invoice scenario</legend>
+          <label><input type="radio" name="scenario" value="normal" checked> Accepted</label>
+          <label><input type="radio" name="scenario" value="offline"> Service unavailable</label>
+          <label><input type="radio" name="scenario" value="unknown"> Response lost</label>
+          <label><input type="radio" name="scenario" value="rejected"> Rejected</label>
+        </fieldset>
+        <article class="trace" aria-labelledby="trace-status">
+          <p class="eyebrow">Recorded state</p>
+          <h3 id="trace-status" aria-live="polite"></h3>
+          <ol id="trace-events"></ol>
+          <p class="operator" id="trace-next"></p>
+        </article>
+      </div>
+      <p id="trace-fallback">An unsent invoice can be retried, an unknown result needs reconciliation before resubmission, and a rejected payload needs correction.</p>
+    </section>
+    <section class="surface">
+      <div class="wrap section scope">
+        <div>
+          <p class="eyebrow">03 / Scope</p>
+          <h2>A static site, not a live storefront</h2>
+          <p>GitHub Pages serves this walkthrough only. It doesn’t take payments, start an identity session, enroll students, or contact external providers. The repository documents the runnable components and the boundary between simulated and configured integrations.</p>
+        </div>
+        <a class="button secondary" href="https://github.com/husseinahmad7/learning-commerce-sync">Repository and setup ↗</a>
+      </div>
+    </section>
+  </main>
+  <footer class="wrap footer">
+    <span>Learning Commerce Sync</span>
+    <span>Built by Hussein Ahmad</span>
+  </footer>
+</body>
+</html>

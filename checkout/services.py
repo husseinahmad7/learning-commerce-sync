@@ -3,7 +3,7 @@ from typing import TypedDict
 
 from django.db import transaction
 
-from .models import Course, Enrollment, ERPSyncLog, Student
+from .models import Course, Enrollment, EnrollmentOutbox, ERPSyncLog, Student
 
 
 class CheckoutData(TypedDict):
@@ -45,6 +45,7 @@ def create_checkout(data: CheckoutData) -> tuple[Enrollment, bool]:
         transaction_id=data["transaction_id"], defaults={"student": student, "course": course}
     )
     if created:
+        EnrollmentOutbox.objects.create(enrollment=enrollment)
         ERPSyncLog.objects.create(
             enrollment=enrollment,
             payload={

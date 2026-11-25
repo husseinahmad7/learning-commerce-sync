@@ -26,6 +26,6 @@ class SecretSettingsTests(SimpleTestCase):
                 self.assertNotIn("fictional-test-value", str(failure.exception))
 
     def test_missing_file_fails_instead_of_using_a_demo_default(self):
-        with patch.dict("os.environ", {"TEST_SECRET_FILE": "/nonexistent/apptech-secret"}):
+        with patch.dict("os.environ", {"TEST_SECRET_FILE": "/nonexistent/learning-commerce-secret"}):
             with self.assertRaises(ImproperlyConfigured):
                 read_secret("TEST_SECRET", required=False, default="demo-default")

@@ -27,3 +27,15 @@ def sync(request):
             transaction.set_rollback(True)
             return Response({"detail": "Idempotency key reused with different data."}, status=409)
     return Response({"student_id": student.pk, "invoice_id": f"MOCK-INV-{invoice.pk}"})
+
+
+@api_view(["GET"])
+def invoice_lookup(request):
+    """Local simulator lookup, not a claim that a real vendor offers this API."""
+    key = request.query_params.get("transaction_id", "")
+    if not key or len(key) > 100:
+        return Response({"detail": "A transaction_id is required."}, status=400)
+    invoice = MockERPInvoice.objects.filter(transaction_id=key).first()
+    if invoice is None:
+        return Response({"code": "invoice_not_recorded", "transaction_id": key}, status=404)
+    return Response({"invoice_id": f"MOCK-INV-{invoice.pk}"})

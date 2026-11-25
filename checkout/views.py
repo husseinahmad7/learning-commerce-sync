@@ -40,12 +40,15 @@ def checkout(request):
 
 @api_view(["GET"])
 def enrollment_detail(request, pk):
-    enrollment = get_object_or_404(Enrollment.objects.select_related("sync_log"), pk=pk)
+    enrollment = get_object_or_404(Enrollment.objects.select_related("sync_log", "delivery"), pk=pk)
     log = enrollment.sync_log
     return Response({
         "enrollment_id": enrollment.pk,
         "transaction_id": enrollment.transaction_id,
         "sync_status": log.status,
+        "invoice_outcome": log.invoice_outcome,
+        "invoice_alert_at": log.alert_at,
+        "learning_status": "Enrolled" if getattr(enrollment, "delivery", None) and enrollment.delivery.delivered_at else "Pending",
         "retry_count": log.retry_count,
         "erp_invoice_id": log.erp_invoice_id,
         "last_error": log.last_error,

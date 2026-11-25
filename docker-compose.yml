@@ -1,14 +1,14 @@
-name: apptech-academic-sync-demo
+name: learning-commerce-sync-demo
 
 x-app: &app
-  image: localhost/apptech-academic-sync:dev
+  image: localhost/learning-commerce-sync:dev
   build: .
   pull_policy: build
   environment:
     APP_MODE: demo
     DJANGO_SECRET_KEY: demo-only-not-a-production-secret
-    DB_NAME: apptech
-    DB_USER: apptech
+    DB_NAME: learning_commerce
+    DB_USER: learning_commerce
     DB_PASSWORD: development-only
     DB_HOST: db
     CELERY_BROKER_URL: redis://redis:6379/0
@@ -27,13 +27,13 @@ services:
   db:
     image: docker.io/library/postgres:16-alpine@sha256:1a66d744c1b459e13b05a8fca341da84cb63383e99ce262210efee5a319d4551
     environment:
-      POSTGRES_DB: apptech
-      POSTGRES_USER: apptech
+      POSTGRES_DB: learning_commerce
+      POSTGRES_USER: learning_commerce
       POSTGRES_PASSWORD: development-only
     volumes:
       - postgres-data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U apptech -d apptech"]
+      test: ["CMD-SHELL", "pg_isready -U learning_commerce -d learning_commerce"]
       interval: 2s
       timeout: 3s
       retries: 30

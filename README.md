@@ -1,68 +1,66 @@
-# Academic Sync
+# Learning Commerce Sync
 
-A small Django/DRF checkout service with PostgreSQL, Redis, Celery and a separate Beat scheduler. All sample data and ERP invoices are fictional.
-i didnt folliow all of the `django style guide` for this approach.
+A reference application for a course portal, single sign-on, and reliable asynchronous checkout. It combines a **Next.js course portal** with a **Django/DRF commerce service**. PostgreSQL keeps durable work; Redis and Celery deliver it. Sample purchases, learners, invoices, and enrollments are fictional.
 
-## Run
+## Run locally
 
-With Docker and Compose available, start the reviewer demo:
+Requirements: Docker with Compose, and Node.js 22 or newer for the portal. Start Django, PostgreSQL, Redis, Celery Worker and Beat:
 
 ~~~sh
-docker compose up --build
+MOCK_ERP_RANDOM_FAILURES=false docker compose up --build --wait
 ~~~
 
-Plain docker compose up also builds the app from this checkout. No .env file, side script or Compose override is needed.
-
-The demo uses test credentials and listens on 127.0.0.1:18001. Migrations and sample course PY101 (99.00) are created automatically. In another terminal:
+Django listens on loopback at port 18001. It seeds PY101 at 99.00. To exercise the commerce flow without SSO:
 
 ~~~sh
-curl -s http://127.0.0.1:18001/api/checkout/ \
+curl -fsS http://127.0.0.1:18001/api/checkout/ \
   -H 'Content-Type: application/json' \
   -d '{"student_email":"ada@example.test","student_name":"Ada Demo","course_code":"PY101","amount_paid":"99.00","transaction_id":"demo-001"}'
-
-# Replace 1 with enrollment_id from the response:
-curl -s http://127.0.0.1:18001/api/enrollments/1/
+# Substitute the enrollment_id returned above:
+curl -fsS http://127.0.0.1:18001/api/enrollments/1/
+docker compose exec -T web python manage.py invoice_history 1
 ~~~
 
-or copy the data and use postman.
-## What happens
-
-Checkout saves the enrollment and its invoice snapshot together, then returns 200. It never contacts Redis or ERP, and web can start while Redis is down. Beat schedules the dispatcher every two seconds; a worker scans pending rows and publishes sync tasks. PostgreSQL remains the source of work if publishing fails or Redis loses messages.
-
-The database makes transaction_id unique and gives each enrollment one sync log. Identical replays return the same enrollment; changed checkout details with that ID return 409. IDs accept 1–100 ASCII letters, digits, dots, underscores, colons or hyphens; invalid IDs return 400.
-
-Workers lock each sync row with SELECT FOR UPDATE SKIP LOCKED. Retries use the saved name, email, course and amount even if those records change later. Connection errors, HTTP 500 and malformed replies get five retries with jittered backoff capped at 30 seconds. The chosen due date is saved before publishing a retry. retry_count counts failed attempts, including the final sixth attempt.
-
-The worker-side circuit breaker uses atomic shared Redis state. Three consecutive failed completions open it for 15 seconds. One leased half-open probe can test recovery; epochs reject stale probe results. Open circuits or unavailable breaker storage defer Pending work without consuming retry budget. Redis restart resets this advisory state, while pending invoices remain in PostgreSQL.
-
-The mock ERP commits an actual, separate HTTP request. Its unique invoice key returns the same invoice after a lost reply. A real ERP must offer equivalent idempotency; local locks cannot guarantee exactly one remote effect after a timeout. Failed rows keep their payload and last error.
+Start the portal in another terminal:
 
 ~~~sh
-docker compose exec web python manage.py retry_sync 1
+cd portal
+npm ci
+npm run dev
 ~~~
+
+Open http://127.0.0.1:3000. The public catalog works without external services. Follow the [identity and learning setup](deploy/identity-and-learning.md) for OIDC sign-in and a link into your Open edX course. To try the simulated purchase from the signed-in portal, set `DEMO_COMMERCE_ORIGIN=http://127.0.0.1:18001`. The button uses a fictional payment notice, not a gateway or card. It displays invoice and enrollment states separately. Use only local test data.
+
+## How it fits together
+
+| Concern | Design |
+| --- | --- |
+| Public portal | Next.js owns the public catalog and test checkout. Open edX owns the player and authoring interfaces; this repository does not fork or replace them. |
+| Navigation | Deep links send the browser to a configured LMS origin. A consistent brand and reciprocal link are deployment work. A reverse proxy is optional routing, not an authentication system. |
+| Single sign-on | Two clients of one identity provider: portal and LMS. The portal uses OIDC authorization code flow with PKCE, state, nonce, and verified ID-token signatures. Each app owns its own session. |
+| Reliable delivery | Checkout records the payment snapshot, pending invoice, and learning delivery in one PostgreSQL commit. Beat and Celery process each lane independently. Replayed payment IDs produce the same checkout, and a changed payload with the same ID is rejected. |
+| Invoice recovery | An attempt and pessimistic `Unknown` outcome are written before sending. A lost response triggers lookup rather than blind replay. Rejection is preserved for correction; an overdue item is flagged in the status API. |
+
+Django and the simulated invoice endpoint use a shared physical PostgreSQL instance in this demo, but the invoice HTTP request and enrollment delivery commit independently. The mocks show delivery contracts and failure behavior; they do **not** connect to a real payment processor, production LMS, ERPNext, or tax authority. A real connector needs provider-specific idempotency, reconciliation, account mapping, authorization and monitoring. This is not a tax compliance implementation.
+
+See [Failure scenarios and the operator runbook](deploy/commerce-recovery.md) for retry semantics and limits.
 
 ## Test and inspect
 
 ~~~sh
-docker compose exec -T web python manage.py test -v 2
+docker compose exec -T web python manage.py makemigrations --check --dry-run
+docker compose exec -T web python manage.py test --noinput -v 2
 docker compose logs -f worker beat
-docker compose down
+
+cd portal
+npm ci
+npm test
+npm run build
+npm run test:integration
 ~~~
 
-Tests use real PostgreSQL and Redis, including separate-process breaker probes, checkout races, duplicate tasks, lost replies and broker failures. Task fault tests run eagerly; live checks exercise the queue.
+Portal integration checks start the built Next.js server with a local synthetic identity provider and exercise the signed callback (including invalid state and a bad signature), session, logout, course-link handoff, and demo purchase receipt. They do not verify a real Open edX installation. The [static portfolio site](docs/index.html) can be served with `python3 -m http.server --directory docs 8000`; its outage walkthrough is illustrative and needs no backend.
 
-The two-stage image pins its base digest and all runtime dependencies with hashes. App processes run as UID 10001 with root-owned code, a read-only root filesystem, no capabilities and no new privileges. Only bounded tmpfs paths are writable; PostgreSQL data stays on its writable named volume. Beat's scheduler metadata is temporary, while invoice work is durable.
+Run `docker compose down` to stop the demo. If you upgraded a prior checkout, the new default Compose project and database name are intentional. They do not move or delete old volumes. Back up and migrate any wanted data separately.
 
-Worker and Beat are separate services using the same image. Keep exactly one Beat per schedule in production; scale workers independently. Worker readiness uses a targeted broker ping, Beat uses a scheduler heartbeat, and web readiness checks only PostgreSQL.
-
-demo mode has dummy defaults, the API/mock route has no authentication, and the database uses its bootstrap role. Production needs managed secrets/rotation, least-privilege database roles, access control and TLS. Services bind only loopback. Rate limiting is documented at the deployment edge in deploy/edge-rate-limiting.md; no gateway or application limiter is running here.
-
-## Optional file-secret setup
-
-~~~sh
-python3 scripts/hardened.py up --build -d --wait
-~~~
-
-It uses compose.hardened.yml on 127.0.0.1:18000, generates project secrets once in .secrets/, and saves a private database backup in .state/ before changing the database password. Existing values and data are reused. Keep both directories out of Git and images. Compose secrets are read-only local file mounts, not a secret manager; production should use managed secrets and rotation.
-
-PS: I used podman, not docker for this setup.
+For an isolated file-secret demo, run `python3 scripts/hardened.py up --build -d --wait`; it uses a separate Compose project and port 18000. The public demo is not production-ready. Keep the service on loopback, protect backups and secret files, and use authenticated/authorized APIs, TLS, least-privilege roles, and production secret management for a deployment. See [edge rate-limiting notes](deploy/edge-rate-limiting.md).

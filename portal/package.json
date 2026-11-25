@@ -1,0 +1,21 @@
+{
+  "name": "learning-commerce-portal",
+  "version": "1.0.0",
+  "description": "",
+  "scripts": {
+    "test": "node --test lib/*.test.mjs",
+    "dev": "next dev --hostname 127.0.0.1",
+    "build": "next build",
+    "start": "next start --hostname 127.0.0.1",
+    "test:integration": "node --test test/oidc.integration.mjs"
+  },
+  "type": "module",
+  "dependencies": {
+    "jose": "6.2.18",
+    "next": "16.4.6",
+    "openid-client": "6.9.1",
+    "react": "19.3.1",
+    "react-dom": "19.3.1"
+  },
+  "private": true
+}

@@ -36,7 +36,52 @@ class ERPSyncLog(models.Model):
     payload = models.JSONField()
     next_attempt_at = models.DateTimeField(default=timezone.now)
     last_error = models.CharField(max_length=500, blank=True)
+    class Outcome(models.TextChoices):
+        PENDING = "Pending"
+        UNKNOWN = "Unknown"
+        REJECTED = "Rejected"
+        ACCEPTED = "Accepted"
+        EXHAUSTED = "Exhausted"
+
+    invoice_outcome = models.CharField(max_length=9, choices=Outcome.choices, default=Outcome.PENDING)
+    created_at = models.DateTimeField(default=timezone.now)
+    alert_at = models.DateTimeField(null=True, blank=True)
     erp_invoice_id = models.CharField(max_length=100, blank=True)
 
     class Meta:
         indexes = [models.Index(fields=["status", "next_attempt_at"], name="checkout_status_due_idx")]
+
+
+class EnrollmentOutbox(models.Model):
+    """A PaymentConfirmed record for the independent learning consumer."""
+
+    enrollment = models.OneToOneField(Enrollment, on_delete=models.PROTECT, related_name="delivery")
+    created_at = models.DateTimeField(default=timezone.now)
+    next_attempt_at = models.DateTimeField(default=timezone.now)
+    attempts = models.PositiveIntegerField(default=0)
+    delivered_at = models.DateTimeField(null=True, blank=True)
+    last_error = models.CharField(max_length=200, blank=True)
+
+    class Meta:
+        indexes = [models.Index(fields=["delivered_at", "next_attempt_at"], name="enroll_outbox_due_idx")]
+
+
+class LearningEnrollment(models.Model):
+    """Local simulation of an LMS-side idempotent entitlement."""
+
+    student = models.ForeignKey(Student, on_delete=models.PROTECT)
+    course = models.ForeignKey(Course, on_delete=models.PROTECT)
+    created_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["student", "course"], name="learning_one_entitlement"),
+        ]
+
+
+class InvoiceAttempt(models.Model):
+    log = models.ForeignKey(ERPSyncLog, on_delete=models.PROTECT, related_name="attempts")
+    action = models.CharField(max_length=12)
+    outcome = models.CharField(max_length=20)
+    occurred_at = models.DateTimeField(default=timezone.now)
+    detail = models.CharField(max_length=200, blank=True)

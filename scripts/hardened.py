@@ -9,13 +9,13 @@ import subprocess
 import sys
 
 ROOT = Path(__file__).resolve().parents[1]
-PROJECT = os.environ.get("APPTECH_PROJECT", "apptech-academic-sync")
-if not re.fullmatch(r"apptech-academic-sync(?:-[a-z0-9-]+)?", PROJECT):
-    raise SystemExit("Refusing to manage a project outside the assessment namespace")
-DIRECTORY = Path(os.environ.get("APPTECH_SECRETS_DIR", str(ROOT / ".secrets"))).resolve()
+PROJECT = os.environ.get("LEARNING_COMMERCE_PROJECT", "learning-commerce-sync")
+if not re.fullmatch(r"learning-commerce-sync(?:-[a-z0-9-]+)?", PROJECT):
+    raise SystemExit("Refusing to manage a project outside the project namespace")
+DIRECTORY = Path(os.environ.get("LEARNING_COMMERCE_SECRETS_DIR", str(ROOT / ".secrets"))).resolve()
 if DIRECTORY.parent != ROOT or not DIRECTORY.name.startswith(".secrets"):
     raise SystemExit("Secret directory must be a .secrets* directory inside this project")
-os.environ["APPTECH_SECRETS_DIR"] = str(DIRECTORY)
+os.environ["LEARNING_COMMERCE_SECRETS_DIR"] = str(DIRECTORY)
 COMMAND = [
     "docker", "compose", "-p", PROJECT,
     "-f", str(ROOT / "docker-compose.yml"),
@@ -31,7 +31,7 @@ def run(arguments, *, payload=None, capture=False):
     )
     if result.returncode:
         # Captured SQL diagnostics can echo a statement. Keep them off the terminal.
-        raise SystemExit(f"Assessment command failed ({result.returncode}); captured diagnostics suppressed")
+        raise SystemExit(f"Compose command failed ({result.returncode}); captured diagnostics suppressed")
     return result.stdout
 
 
@@ -68,11 +68,11 @@ def verify_baseline(state):
         raise SystemExit("Unexpected preservation baseline tables")
     for table, rows in saved.items():
         sql = f"SELECT coalesce(json_agg(t ORDER BY id),'[]'::json) FROM {table} t;"
-        raw = run(["exec", "-T", "db", "psql", "-U", "apptech", "-d", "apptech", "-Atc", sql], capture=True)
+        raw = run(["exec", "-T", "db", "psql", "-U", "learning_commerce", "-d", "learning_commerce", "-Atc", sql], capture=True)
         current = {row["id"]: row for row in json.loads(raw)}
         if any(current.get(row["id"]) != row for row in rows or []):
             raise SystemExit("Preservation baseline differs; credential change not attempted")
-    print("Existing assessment records match the private preservation baseline", flush=True)
+    print("Existing demo records match the private preservation baseline", flush=True)
 
 
 def configure_database():
@@ -90,7 +90,7 @@ def configure_database():
     verify_baseline(state)
     backup = state / "before-secret-rotation.dump"
     if not backup.exists():
-        data = run(["exec", "-T", "db", "pg_dump", "-U", "apptech", "-d", "apptech", "-Fc"], capture=True)
+        data = run(["exec", "-T", "db", "pg_dump", "-U", "learning_commerce", "-d", "learning_commerce", "-Fc"], capture=True)
         with backup.open("xb") as stream:
             stream.write(data)
         backup.chmod(0o600)
@@ -100,11 +100,11 @@ def configure_database():
     sql = (
         "SET log_statement='none'; SET log_min_duration_statement=-1; "
         "SET log_min_error_statement='panic'; "
-        f"ALTER ROLE apptech PASSWORD '{quoted}';\n"
+        f"ALTER ROLE learning_commerce PASSWORD '{quoted}';\n"
     )
     run(
         ["exec", "-T", "-e", "PGOPTIONS=-c log_statement=none -c log_min_duration_statement=-1 -c log_min_error_statement=panic",
-         "db", "psql", "-q", "-U", "apptech", "-d", "apptech", "-v", "ON_ERROR_STOP=1"],
+         "db", "psql", "-q", "-U", "learning_commerce", "-d", "learning_commerce", "-v", "ON_ERROR_STOP=1"],
         payload=sql.encode(), capture=True,
     )
     marker.write_text(digest)
