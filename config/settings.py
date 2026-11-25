@@ -65,3 +65,6 @@ CIRCUIT_KEY = os.environ.get("CIRCUIT_KEY", "learning_commerce:erp:circuit")
 CIRCUIT_FAILURE_THRESHOLD = 3
 CIRCUIT_COOLDOWN_SECONDS = 15
 CIRCUIT_PROBE_LEASE_SECONDS = 20
+
+MOCK_TAX_URL = os.environ.get("MOCK_TAX_URL", "http://web:8000/mock-tax/report/")
+MOCK_TAX_SCENARIO = os.environ.get("MOCK_TAX_SCENARIO", "accept")

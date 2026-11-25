@@ -20,3 +20,8 @@ class Command(BaseCommand):
         )
         for attempt in log.attempts.order_by("occurred_at", "id"):
             self.stdout.write(f"{attempt.occurred_at.isoformat()} {attempt.action} {attempt.outcome}")
+        tax = getattr(log, "tax_delivery", None)
+        if tax:
+            self.stdout.write(f"Demo tax status: {tax.status}; held for review: {tax.held}")
+            for attempt in tax.attempts.order_by("occurred_at", "id"):
+                self.stdout.write(f"{attempt.occurred_at.isoformat()} {attempt.action} {attempt.outcome}")

@@ -29,7 +29,7 @@ npm ci
 npm run dev
 ~~~
 
-Open http://127.0.0.1:3000. The public catalog works without external services. Follow the [identity and learning setup](deploy/identity-and-learning.md) for OIDC sign-in and a link into your Open edX course. To try the simulated purchase from the signed-in portal, set `DEMO_COMMERCE_ORIGIN=http://127.0.0.1:18001`. The button uses a fictional payment notice, not a gateway or card. It displays invoice and enrollment states separately. Use only local test data.
+Open http://127.0.0.1:3000. The public catalog works without external services. Follow the [identity and learning setup](deploy/identity-and-learning.md) for OIDC sign-in and a link into your Open edX course. To try the simulated purchase from the signed-in portal, set `DEMO_COMMERCE_ORIGIN=http://127.0.0.1:18001`. The button uses a fictional payment notice, not a gateway or card. It displays ERP invoice, mock tax-reporting, and enrollment states separately. Use only local test data.
 
 ## How it fits together
 
@@ -39,7 +39,7 @@ Open http://127.0.0.1:3000. The public catalog works without external services. 
 | Navigation | Deep links send the browser to a configured LMS origin. A consistent brand and reciprocal link are deployment work. A reverse proxy is optional routing, not an authentication system. |
 | Single sign-on | Two clients of one identity provider: portal and LMS. The portal uses OIDC authorization code flow with PKCE, state, nonce, and verified ID-token signatures. Each app owns its own session. |
 | Reliable delivery | Checkout records the payment snapshot, pending invoice, and learning delivery in one PostgreSQL commit. Beat and Celery process each lane independently. Replayed payment IDs produce the same checkout, and a changed payload with the same ID is rejected. |
-| Invoice recovery | An attempt and pessimistic `Unknown` outcome are written before sending. A lost response triggers lookup rather than blind replay. Rejection is preserved for correction; an overdue item is flagged in the status API. |
+| Invoice recovery | An attempt and pessimistic `Unknown` outcome are written before sending. A lost response triggers lookup rather than blind replay. A separate mock ZATCA reporting stage starts only after ERP acceptance. It records rejection or reconciles an unknown outcome without duplicating the report; approaching deadlines are exposed in the status API. |
 
 Django and the simulated invoice endpoint use a shared physical PostgreSQL instance in this demo, but the invoice HTTP request and enrollment delivery commit independently. The mocks show delivery contracts and failure behavior; they do **not** connect to a real payment processor, production LMS, ERPNext, or tax authority. A real connector needs provider-specific idempotency, reconciliation, account mapping, authorization and monitoring. This is not a tax compliance implementation.
 
@@ -59,7 +59,7 @@ npm run build
 npm run test:integration
 ~~~
 
-Portal integration checks start the built Next.js server with a local synthetic identity provider and exercise the signed callback (including invalid state and a bad signature), session, logout, course-link handoff, and demo purchase receipt. They do not verify a real Open edX installation. The [static portfolio site](docs/index.html) can be served with `python3 -m http.server --directory docs 8000`; its outage walkthrough is illustrative and needs no backend.
+Portal integration checks start the built Next.js server with a local synthetic identity provider and exercise the signed callback (including invalid state and a bad signature), session, logout, course-link handoff, and demo purchase receipt. Set `COMMERCE_E2E_ORIGIN=http://127.0.0.1:18001` to exercise the same built UI path against running Django and real background workers. CI runs both modes. The automated test provider is synthetic; live LMS setup and verification are separate. The [static portfolio site](docs/index.html) can be served with `python3 -m http.server --directory docs 8000`; its outage walkthrough is illustrative and needs no backend.
 
 Run `docker compose down` to stop the demo. If you upgraded a prior checkout, the new default Compose project and database name are intentional. They do not move or delete old volumes. Back up and migrate any wanted data separately.
 

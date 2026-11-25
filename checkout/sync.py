@@ -9,7 +9,7 @@ from django.utils import timezone
 
 from .circuit import CircuitBreaker, CircuitOpen
 from .erp import ERPResponse, UnknownInvoiceOutcome, lookup_mock_invoice
-from .models import ERPSyncLog, InvoiceAttempt
+from .models import ERPSyncLog, InvoiceAttempt, TaxDelivery
 
 
 @dataclass
@@ -29,6 +29,15 @@ def _accept(log, invoice_id):
     log.invoice_outcome = ERPSyncLog.Outcome.ACCEPTED
     log.erp_invoice_id = invoice_id
     log.last_error = ""
+    invoice = log.payload["invoice"]
+    TaxDelivery.objects.get_or_create(
+        invoice=log,
+        defaults={"payload": {
+            "transaction_id": invoice["transaction_id"],
+            "invoice_id": invoice_id,
+            "amount": invoice["amount_paid"],
+        }},
+    )
 
 
 def sync_one(

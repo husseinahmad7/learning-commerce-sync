@@ -40,7 +40,7 @@ jobs:
 
   portal:
     runs-on: ubuntu-latest
-    timeout-minutes: 8
+    timeout-minutes: 15
     defaults:
       run:
         working-directory: portal
@@ -57,3 +57,20 @@ jobs:
       - run: npm test
       - run: npm run build
       - run: npm run test:integration
+      - name: Start isolated commerce services
+        working-directory: .
+        env:
+          COMPOSE_PROJECT_NAME: learning-commerce-sync-portal-ci
+          MOCK_ERP_RANDOM_FAILURES: "false"
+          MOCK_TAX_SCENARIO: accept
+        run: docker compose up --build --detach --wait --wait-timeout 120
+      - name: Exercise portal through real Django and background workers
+        env:
+          COMMERCE_E2E_ORIGIN: http://127.0.0.1:18001
+        run: npm run test:integration
+      - name: Stop isolated commerce services
+        if: always()
+        working-directory: .
+        env:
+          COMPOSE_PROJECT_NAME: learning-commerce-sync-portal-ci
+        run: docker compose down --volumes --remove-orphans

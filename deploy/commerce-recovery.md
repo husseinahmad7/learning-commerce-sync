@@ -15,3 +15,23 @@ Use `invoice_history <enrollment_id>` to see attempt kind, start/completion and 
 To reproduce known paths rather than wait for random failures, run `python manage.py test checkout.tests.test_delivery` inside the web container. Cases cover known outage, lost acknowledgement, duplicate processing, crashed attempt, provider rejection, approaching deadline, and learning delivery. The container's default random simulator is useful for casual exploration; disable it for a predictable successful flow.
 
 If Redis restarts, Beat will rediscover persisted work. If the worker dies after committing the attempt but before receiving a response, the next eligible run reconciles it. If the actual invoicing service is only reachable through the ERP and the ERP goes down, a separate queue cannot submit invoices on its own. A real independent invoicing service, if appropriate, needs explicit authorization, its own audited credentials and a clear operating runbook.
+
+## Exercise the mock reporting authority
+
+The demo adds a separate reporting stage **after** simulated ERP acceptance, while enrollment proceeds independently. The report uses a fictional invoice reference and amount, not learner details. Status exposes separate `invoice_outcome`, `tax_status`, `tax_receipt_id`, `tax_alert_at`, and `learning_status` fields. Pre-upgrade ERP successes are not submitted retroactively. The reporting paths and statuses are local simulator contracts; they are not an emulation of ZATCA protocol, signing, accreditation, or a real ZATCA invoice-status endpoint.
+
+Use a disposable Compose project and a fresh checkout transaction ID for each exercise:
+
+~~~sh
+MOCK_ERP_RANDOM_FAILURES=false MOCK_TAX_SCENARIO=lost_ack \
+  docker compose -p learning-commerce-sync-tax-qa up --build --wait
+~~~
+
+- **`accept`** (default): a confirmed mock receipt and `Accepted`.
+- **`reject`**: `Rejected`, held for correction, no receipt and no automatic resubmission.
+- **`lost_ack`**: the mock authority stores the report, the worker records `Unknown`, then a separate lookup confirms the original receipt. There is one authority record, not two.
+- **ERP unavailable**: reporting waits for the ERP receipt; the learner can still enroll independently. A stalled or ambiguous item can be inspected with `invoice_history <enrollment_id>`.
+
+After a new demo checkout, use the status endpoint and the attempt journal from the [README](../README.md). To switch scenarios in this disposable project, change the environment then recreate app services; use a fresh transaction ID. Existing data belongs to its original scenario. When finished: `docker compose -p learning-commerce-sync-tax-qa down --volumes`.
+
+For real vendor work, use [ERPNext integration documentation](https://docs.frappe.io/erpnext/integrating-erpnext-with-other-applications) and [ZATCA developer guidance](https://zatca.gov.sa/en/E-Invoicing/Introduction/Guidelines/Documents/DEVELOPER-PORTAL-MANUAL.pdf). Provider sandbox credentials, formally correct documents and approved signing are outside this demo.

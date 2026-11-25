@@ -85,3 +85,34 @@ class InvoiceAttempt(models.Model):
     outcome = models.CharField(max_length=20)
     occurred_at = models.DateTimeField(default=timezone.now)
     detail = models.CharField(max_length=200, blank=True)
+
+
+class TaxDelivery(models.Model):
+    """Durable second-stage reporting, independent of the demo ERP process."""
+
+    class Status(models.TextChoices):
+        PENDING = "Pending"
+        UNKNOWN = "Unknown"
+        ACCEPTED = "Accepted"
+        REJECTED = "Rejected"
+        ATTENTION = "Attention"
+
+    invoice = models.OneToOneField(ERPSyncLog, on_delete=models.PROTECT, related_name="tax_delivery")
+    payload = models.JSONField()
+    status = models.CharField(max_length=9, choices=Status.choices, default=Status.PENDING)
+    held = models.BooleanField(default=False)
+    next_attempt_at = models.DateTimeField(default=timezone.now)
+    retry_count = models.PositiveIntegerField(default=0)
+    alert_at = models.DateTimeField(null=True, blank=True)
+    receipt_id = models.CharField(max_length=100, blank=True)
+    last_error = models.CharField(max_length=200, blank=True)
+
+    class Meta:
+        indexes = [models.Index(fields=["held", "status", "next_attempt_at"], name="tax_delivery_due_idx")]
+
+
+class TaxAttempt(models.Model):
+    delivery = models.ForeignKey(TaxDelivery, on_delete=models.PROTECT, related_name="attempts")
+    action = models.CharField(max_length=12)
+    outcome = models.CharField(max_length=20)
+    occurred_at = models.DateTimeField(default=timezone.now)

@@ -2,12 +2,15 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
 import { spawn } from 'node:child_process';
-import { randomBytes } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 import { once } from 'node:events';
-import { exportJWK, generateKeyPair, SignJWT } from 'jose';
+import { exportJWK, generateKeyPair, jwtDecrypt, SignJWT } from 'jose';
 import { calculatePKCECodeChallenge } from 'openid-client';
 
-test('built portal completes a signed OIDC round trip, rejects bad state and bad signature, and signs out', { timeout: 30000 }, async t => {
+const liveCommerce = process.env.COMMERCE_E2E_ORIGIN || '';
+if (liveCommerce && !/^http:\/\/127\.0\.0\.1:\d+$/.test(liveCommerce)) throw new Error('COMMERCE_E2E_ORIGIN must be an isolated loopback demo');
+
+test('built portal completes a signed OIDC round trip, rejects bad state and bad signature, and signs out', { timeout: liveCommerce ? 75000 : 30000 }, async t => {
   const { privateKey, publicKey } = await generateKeyPair('RS256');
   const wrong = await generateKeyPair('RS256');
   const jwk = { ...await exportJWK(publicKey), kid: 'integration-test', alg: 'RS256', use: 'sig' };
@@ -66,9 +69,10 @@ test('built portal completes a signed OIDC round trip, rejects bad state and bad
   const port = reserve.address().port;
   await new Promise(resolve => reserve.close(resolve));
   const origin = 'http://127.0.0.1:' + port;
+  const sessionSecret = randomBytes(32).toString('hex');
   const next = spawn(process.execPath,['node_modules/next/dist/bin/next','start','--hostname','127.0.0.1','--port',String(port)], {
     env:{ ...process.env, NEXT_TELEMETRY_DISABLED:'1', OIDC_ISSUER:issuer, OIDC_CLIENT_ID:'portal-test', OIDC_CLIENT_SECRET:'secret-test',
-      PORTAL_ORIGIN:origin, DEMO_COMMERCE_ORIGIN:issuer, PORTAL_SESSION_SECRET:randomBytes(32).toString('hex'),
+      PORTAL_ORIGIN:origin, DEMO_COMMERCE_ORIGIN:liveCommerce || issuer, PORTAL_SESSION_SECRET:sessionSecret,
       LMS_ORIGIN:'https://learn.example.test', LMS_PY101_PATH:'/courseware/py101/' },
     stdio:['ignore','pipe','pipe'],
   });
@@ -119,13 +123,35 @@ test('built portal completes a signed OIDC round trip, rejects bad state and bad
   const submit = () => get('/demo/checkout',{method:'POST',headers:{origin,cookie:session},body:new URLSearchParams({intent})});
   const purchase = await submit();
   assert.equal(purchase.status,303);
-  assert.equal((await submit()).status,303);
-  assert.equal(orders.length,2);
-  assert.equal(orders[0].transaction_id,orders[1].transaction_id);
-  assert.equal(orders[0].amount_paid,'99.00');
-  assert.match(orders[0].student_email,/@example\.test$/);
-  const receipt = purchase.headers.getSetCookie().find(cookie => cookie.startsWith('lcs-checkout=')).split(';')[0];
-  assert.match(await (await get('/',{headers:{cookie:session+'; '+receipt}})).text(),/Invoice: Unknown · Learning activation: Active/);
+  const replay = await submit();
+  assert.equal(replay.status,303);
+  const cookieFor = response => response.headers.getSetCookie().find(cookie => cookie.startsWith('lcs-checkout=')).split(';')[0];
+  const receipt = cookieFor(purchase);
+  const cookies = session+'; '+receipt;
+  if (liveCommerce) {
+    const key = createHash('sha256').update(Buffer.from(sessionSecret,'hex')).digest();
+    const payloadFor = async cookie => (await jwtDecrypt(cookie.slice('lcs-checkout='.length),key,{audience:'learning-commerce-portal'})).payload;
+    const { id } = await payloadFor(receipt);
+    assert.equal((await payloadFor(cookieFor(replay))).id,id);
+    const deadline = Date.now()+55000;
+    let status, passed;
+    do {
+      const result = await fetch(liveCommerce+'/api/enrollments/'+id+'/',{signal:AbortSignal.timeout(4000)});
+      assert.equal(result.status,200);
+      status = await result.json();
+      passed = status.invoice_outcome === 'Accepted' && status.tax_status === 'Accepted' && status.learning_status === 'Enrolled';
+      if (!passed) await new Promise(resolve => setTimeout(resolve,750));
+    } while (!passed && Date.now() < deadline);
+    assert.ok(passed, JSON.stringify({invoice:status?.invoice_outcome,tax:status?.tax_status,learning:status?.learning_status}));
+    assert.match(status.tax_receipt_id,/^MOCK-TAX-/);
+    assert.match(await (await get('/',{headers:{cookie:cookies}})).text(),/Invoice: Accepted · Mock tax report: Accepted · Learning activation: Enrolled/);
+  } else {
+    assert.equal(orders.length,2);
+    assert.equal(orders[0].transaction_id,orders[1].transaction_id);
+    assert.equal(orders[0].amount_paid,'99.00');
+    assert.match(orders[0].student_email,/@example\.test$/);
+    assert.match(await (await get('/',{headers:{cookie:cookies}})).text(),/Invoice: Unknown · Mock tax report: Not started · Learning activation: Active/);
+  }
   const rejectedLogout = await get('/auth/logout',{method:'POST',headers:{cookie:session,origin:'https://unrelated.example'}});
   assert.equal(rejectedLogout.status,403);
   const logout = await get('/auth/logout',{method:'POST',headers:{cookie:session,origin}});

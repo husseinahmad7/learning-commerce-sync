@@ -31,7 +31,7 @@ export default async function Home({ searchParams }) {
     })}</div></section>
     {status && <section aria-label="Demo receipt"><h2>Demo receipt</h2>
       <p>{status.unavailable ? 'Status is temporarily unavailable. Reload to check again.' :
-        'Invoice: ' + (status.invoice_outcome || 'Pending') + ' · Learning activation: ' + (status.learning_status || 'Pending')}</p>
+        'Invoice: ' + (status.invoice_outcome || 'Pending')+ ' · Mock tax report: ' + (status.tax_status || 'Not started') + ' · Learning activation: ' + (status.learning_status || 'Pending')}</p>
     </section>}
     <footer>Local reference application. No real charges are collected from this portal.</footer>
   </main>;

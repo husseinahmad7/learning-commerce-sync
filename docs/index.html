@@ -39,7 +39,7 @@
           <div><dt>Identity provider</dt><dd>Keycloak</dd></div>
           <div><dt>Payment &amp; state</dt><dd>Django</dd></div>
           <div><dt>Learning runtime</dt><dd>Open edX</dd></div>
-          <div><dt>Invoice processing</dt><dd>Accounting &amp; reporting adapters</dd></div>
+          <div><dt>Invoice processing</dt><dd>Mock ERP &amp; mock ZATCA</dd></div>
         </dl>
       </aside>
     </section>
@@ -62,7 +62,7 @@
       <p class="section-lead">Choose a scenario to see what the system knows, what it saves, and what it should do next. These are illustrative states, not live service calls.</p>
       <div class="walkthrough" hidden>
         <fieldset id="scenarios">
-          <legend>Invoice scenario</legend>
+          <legend>Invoice and tax scenario</legend>
           <label><input type="radio" name="scenario" value="normal" checked> Accepted</label>
           <label><input type="radio" name="scenario" value="offline"> Service unavailable</label>
           <label><input type="radio" name="scenario" value="unknown"> Response lost</label>
@@ -82,7 +82,7 @@
         <div>
           <p class="eyebrow">03 / Scope</p>
           <h2>A static site, not a live storefront</h2>
-          <p>GitHub Pages serves this walkthrough only. It doesn’t take payments, start an identity session, enroll students, or contact external providers. The repository documents the runnable components and the boundary between simulated and configured integrations.</p>
+          <p>GitHub Pages serves this walkthrough only. It doesn’t take payments, start an identity session, enroll students, or contact external providers. The runnable demo includes separate mock ERP and ZATCA steps. The repository documents those components and the boundary between simulated and configured integrations.</p>
         </div>
         <a class="button secondary" href="https://github.com/husseinahmad7/learning-commerce-sync">Repository and setup ↗</a>
       </div>
